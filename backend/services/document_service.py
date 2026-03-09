@@ -22,9 +22,20 @@ CHUNK_CHAR_SIZE = CHUNK_SIZE * 4
 
 
 def _extract_text_pdf(file_path: str) -> str:
+    # Try pymupdf first (best results for Russian/CJK/scanned PDFs)
+    try:
+        import fitz  # pymupdf
+        doc = fitz.open(file_path)
+        text = "\n".join(page.get_text() for page in doc)
+        doc.close()
+        if text.strip():
+            return text
+    except Exception as exc:
+        logger.warning("pymupdf extraction failed for %s: %s", file_path, exc)
+
+    # Fallback to PyPDF2
     try:
         import PyPDF2
-
         text_parts = []
         with open(file_path, "rb") as f:
             reader = PyPDF2.PdfReader(f)
