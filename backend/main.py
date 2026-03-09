@@ -57,3 +57,30 @@ async def on_startup():
 @app.get("/health", tags=["health"])
 def health():
     return {"status": "ok", "app": "daxi"}
+
+
+# ── Seed first curator (temporary) ────────────────────────────────────────────
+@app.post("/seed-curator", include_in_schema=False)
+def seed_curator(email: str, password: str, secret: str):
+    if secret != settings.SECRET_KEY:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from database import SessionLocal
+    from models import User, AllowlistEntry
+    from passlib.context import CryptContext
+    pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    db = SessionLocal()
+    try:
+        if not db.query(AllowlistEntry).filter(AllowlistEntry.email == email).first():
+            db.add(AllowlistEntry(email=email, role="curator"))
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            user.role = "curator"
+            user.is_active = True
+            user.password_hash = pwd.hash(password)
+        else:
+            db.add(User(email=email, password_hash=pwd.hash(password), role="curator", is_active=True))
+        db.commit()
+        return {"status": "ok"}
+    finally:
+        db.close()
