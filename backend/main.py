@@ -51,6 +51,28 @@ async def on_startup():
     logger.info("Initialising database…")
     init_db()
     logger.info("Database ready.")
+    _seed_curator()
+
+
+def _seed_curator():
+    seed_email = os.getenv("SEED_CURATOR_EMAIL")
+    seed_password = os.getenv("SEED_CURATOR_PASSWORD")
+    if not seed_email or not seed_password:
+        return
+    from database import SessionLocal
+    from models import User, AllowlistEntry
+    from passlib.context import CryptContext
+    pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.email == seed_email).first():
+            if not db.query(AllowlistEntry).filter(AllowlistEntry.email == seed_email).first():
+                db.add(AllowlistEntry(email=seed_email, role="curator"))
+            db.add(User(email=seed_email, password_hash=pwd.hash(seed_password), role="curator", is_active=True))
+            db.commit()
+            logger.info(f"Seeded curator: {seed_email}")
+    finally:
+        db.close()
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
