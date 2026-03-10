@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     RESEND_API_KEY: Optional[str] = None
+    BREVO_API_KEY: Optional[str] = None
     FRONTEND_URL: str = "http://localhost:8081"
     EMAIL_FROM: str = "Daxi <noreply@daxi.app>"
 

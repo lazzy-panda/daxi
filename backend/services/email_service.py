@@ -6,9 +6,43 @@ logger = logging.getLogger(__name__)
 
 
 def _send(to: str, subject: str, html: str) -> bool:
-    if not settings.RESEND_API_KEY:
-        logger.info("RESEND_API_KEY not set — skipping email to %s: %s", to, subject)
+    if settings.BREVO_API_KEY:
+        return _send_brevo(to, subject, html)
+    if settings.RESEND_API_KEY:
+        return _send_resend(to, subject, html)
+    logger.info("No email provider configured — skipping email to %s: %s", to, subject)
+    return False
+
+
+def _send_brevo(to: str, subject: str, html: str) -> bool:
+    try:
+        sender_email = settings.EMAIL_FROM
+        # Parse "Name <email>" format if present
+        if "<" in sender_email and ">" in sender_email:
+            name = sender_email.split("<")[0].strip()
+            email = sender_email.split("<")[1].rstrip(">").strip()
+        else:
+            name = "Daxi"
+            email = sender_email
+        resp = httpx.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={"api-key": settings.BREVO_API_KEY, "Content-Type": "application/json"},
+            json={
+                "sender": {"name": name, "email": email},
+                "to": [{"email": to}],
+                "subject": subject,
+                "htmlContent": html,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return True
+    except Exception as exc:
+        logger.error("Brevo email send failed to %s: %s", to, exc)
         return False
+
+
+def _send_resend(to: str, subject: str, html: str) -> bool:
     try:
         resp = httpx.post(
             "https://api.resend.com/emails",
@@ -19,7 +53,7 @@ def _send(to: str, subject: str, html: str) -> bool:
         resp.raise_for_status()
         return True
     except Exception as exc:
-        logger.error("Email send failed to %s: %s", to, exc)
+        logger.error("Resend email send failed to %s: %s", to, exc)
         return False
 
 
