@@ -30,6 +30,10 @@ def migrate_db():
         ("questions", "org_id", "INTEGER"),
         ("flash_cards", "org_id", "INTEGER"),
         ("exam_sessions", "org_id", "INTEGER"),
+        ("users", "email_verified", "INTEGER DEFAULT 0"),
+        ("users", "verification_token", "TEXT"),
+        ("users", "reset_token", "TEXT"),
+        ("users", "reset_token_expires", "DATETIME"),
     ]
     with engine.connect() as conn:
         for table, column, col_type in migrations:

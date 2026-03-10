@@ -40,6 +40,10 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), nullable=False)  # curator / examinee
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verification_token: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    reset_token: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    reset_token_expires: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     allowlist_entries: Mapped[list["AllowlistEntry"]] = relationship(
         "AllowlistEntry", back_populates="added_by_user", foreign_keys="AllowlistEntry.added_by"

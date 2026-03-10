@@ -124,6 +124,12 @@ export default function LoginScreen() {
               onSubmitEditing={handleLogin}
             />
 
+            <Link href="/(auth)/forgot-password" asChild>
+              <TouchableOpacity style={styles.forgotBtn}>
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </TouchableOpacity>
+            </Link>
+
             <Button
               title="Sign In"
               onPress={handleLogin}
@@ -215,6 +221,13 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     marginTop: spacing.sm,
+  },
+  forgotBtn: {
+    alignSelf: 'flex-end',
+  },
+  forgotText: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
   footer: {
     flexDirection: 'row',
