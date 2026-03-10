@@ -357,6 +357,35 @@ class OrgMemberOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+class AnalyticsOverview(BaseModel):
+    total_examinees: int
+    total_attempts: int
+    pass_rate: float        # percentage 0-100
+    avg_score: float        # percentage 0-100
+    attempts_this_week: int
+    attempts_this_month: int
+
+
+class QuestionStat(BaseModel):
+    question_id: int
+    question_text: str
+    question_type: str
+    total_answers: int
+    correct_count: int
+    fail_rate: float        # percentage 0-100
+
+
+class ExamineeStat(BaseModel):
+    user_id: int
+    email: str
+    attempts: int
+    best_score: float
+    last_attempt_at: Optional[datetime]
+    ever_passed: bool
+
+
 # ── Notifications ─────────────────────────────────────────────────────────────
 
 class NotificationOut(BaseModel):

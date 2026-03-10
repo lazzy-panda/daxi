@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { label: 'Questions', href: '/(curator)/questions', icon: 'help-circle-outline' as const },
   { label: 'Flash Cards', href: '/(curator)/flashcards', icon: 'layers-outline' as const },
   { label: 'Results', href: '/(curator)/results', icon: 'bar-chart-outline' as const },
+  { label: 'Analytics', href: '/(curator)/analytics', icon: 'stats-chart-outline' as const },
 ];
 
 export default function CuratorLayout() {

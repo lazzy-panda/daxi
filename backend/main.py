@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from config import settings
 from database import init_db
-from routers import auth, allowlist, documents, questions, flashcards, exams, results, notifications, organizations
+from routers import auth, allowlist, documents, questions, flashcards, exams, results, notifications, organizations, analytics
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +40,7 @@ app.include_router(exams.router)
 app.include_router(results.router)
 app.include_router(notifications.router)
 app.include_router(organizations.router)
+app.include_router(analytics.router)
 
 # ── Static file serving for uploads ──────────────────────────────────────────
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
