@@ -109,6 +109,8 @@ class Question(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    question_type: Mapped[str] = mapped_column(String(20), default="open")  # open / mcq
+    choices: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # [{label,text,correct}]
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # ai_generated/manual/imported
     source_document_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("documents.id"), nullable=True

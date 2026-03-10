@@ -85,6 +85,15 @@ class DocumentStatusOut(BaseModel):
 
 # ── Questions ─────────────────────────────────────────────────────────────────
 
+class MCQChoice(BaseModel):
+    label: str
+    text: str
+
+
+class MCQChoiceWithAnswer(MCQChoice):
+    correct: bool
+
+
 class QuestionCreate(BaseModel):
     # accept both 'content' (backend convention) and 'text' (frontend convention)
     content: Optional[str] = None
@@ -102,6 +111,11 @@ class QuestionGenerateRequest(BaseModel):
     count: int = 5
 
 
+class MCQGenerateRequest(BaseModel):
+    document_id: int
+    count: int = 5
+
+
 class QuestionImportItem(BaseModel):
     content: Optional[str] = None
     text: Optional[str] = None
@@ -115,6 +129,8 @@ class QuestionOut(BaseModel):
     id: int
     content: str
     text: str = ""
+    question_type: str = "open"
+    choices: Optional[List[MCQChoiceWithAnswer]] = None
     source_type: str
     source: Optional[str] = None
     auto_generated: bool = False
@@ -218,6 +234,8 @@ class EligibilityOut(BaseModel):
 class QuestionStart(BaseModel):
     id: int
     text: str
+    question_type: str = "open"
+    choices: Optional[List[MCQChoice]] = None  # no 'correct' exposed to examinee
 
 
 class ExamStartOut(BaseModel):

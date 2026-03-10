@@ -286,6 +286,8 @@ export default function ExamScreen() {
           questionNumber={currentIndex + 1}
           totalQuestions={session.questions.length}
           questionText={currentQuestion.text}
+          questionType={currentQuestion.question_type}
+          choices={currentQuestion.choices}
           answer={currentAnswer}
           onAnswerChange={(text) =>
             handleAnswerChange(String(currentQuestion.id), text)

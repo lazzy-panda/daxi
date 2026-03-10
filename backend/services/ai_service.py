@@ -223,6 +223,59 @@ def generate_flashcards_from_text(text: str, count: int = 5) -> List[Dict[str, s
         ]
 
 
+# ── MCQ Generation ────────────────────────────────────────────────────────────
+
+MCQ_GEN_PROMPT = """You are an expert educator. Always respond in English.
+Given the following educational content, generate {count} multiple-choice questions.
+Each question must have exactly 4 answer choices labeled A, B, C, D.
+Exactly one choice must be correct. Distractors should be plausible but clearly wrong.
+
+Return a JSON array of objects with fields:
+- question: the question text
+- choices: array of {{label, text, correct}} objects
+
+Return ONLY valid JSON array, no markdown, no extra text."""
+
+
+def generate_mcq_from_text(text: str, count: int = 5) -> List[Dict[str, Any]]:
+    """Generate MCQ questions with choices from document text."""
+    client = _get_client()
+    if client is None:
+        return [
+            {
+                "question": f"Mock MCQ {i + 1}: Which of the following best describes a key concept?",
+                "choices": [
+                    {"label": "A", "text": "Correct answer", "correct": True},
+                    {"label": "B", "text": "Wrong answer B", "correct": False},
+                    {"label": "C", "text": "Wrong answer C", "correct": False},
+                    {"label": "D", "text": "Wrong answer D", "correct": False},
+                ],
+            }
+            for i in range(count)
+        ]
+
+    system = MCQ_GEN_PROMPT.format(count=count)
+    truncated = text[:8000]
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": truncated},
+            ],
+            temperature=0.6,
+            max_tokens=2000,
+        )
+        raw = response.choices[0].message.content.strip()
+        items = json.loads(raw)
+        if isinstance(items, list):
+            return items
+        return []
+    except Exception as exc:
+        logger.error("MCQ generation failed: %s", exc)
+        return []
+
+
 # ── Batch Grading ─────────────────────────────────────────────────────────────
 
 def grade_exam_answers(

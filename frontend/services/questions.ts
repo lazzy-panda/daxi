@@ -1,8 +1,16 @@
 import { api } from './api';
 
+export interface MCQChoice {
+  label: string;
+  text: string;
+  correct?: boolean;
+}
+
 export interface Question {
   id: number | string;
   text: string;
+  question_type?: 'open' | 'mcq';
+  choices?: MCQChoice[];
   created_at?: string;
   source?: string;
   auto_generated?: boolean;
@@ -27,6 +35,12 @@ export const questionsService = {
 
   generateAI: (documentId: number | string, count = 5) =>
     api.post<Question[]>('/questions/generate', {
+      document_id: documentId,
+      count,
+    }),
+
+  generateMCQ: (documentId: number | string, count = 5) =>
+    api.post<Question[]>('/questions/generate/mcq', {
       document_id: documentId,
       count,
     }),

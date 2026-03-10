@@ -1,12 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Input } from './Input';
 import { colors, spacing, radius, fontSize, fontWeight } from '../constants/theme';
+import { MCQChoice } from '../services/exams';
 
 interface QuestionCardProps {
   questionNumber: number;
   totalQuestions: number;
   questionText: string;
+  questionType?: 'open' | 'mcq';
+  choices?: MCQChoice[];
   answer: string;
   onAnswerChange: (text: string) => void;
 }
@@ -15,6 +18,8 @@ export function QuestionCard({
   questionNumber,
   totalQuestions,
   questionText,
+  questionType = 'open',
+  choices,
   answer,
   onAnswerChange,
 }: QuestionCardProps) {
@@ -37,20 +42,52 @@ export function QuestionCard({
 
       {/* Question */}
       <View style={styles.questionBox}>
-        <Text style={styles.questionNumber}>Q{questionNumber}</Text>
+        <View style={styles.questionBoxHeader}>
+          <Text style={styles.questionNumber}>Q{questionNumber}</Text>
+          {questionType === 'mcq' && (
+            <View style={styles.mcqBadge}>
+              <Text style={styles.mcqBadgeText}>Multiple Choice</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.questionText}>{questionText}</Text>
       </View>
 
-      {/* Answer input */}
-      <Input
-        label="Your Answer"
-        value={answer}
-        onChangeText={onAnswerChange}
-        placeholder="Type your answer here..."
-        multiline
-        minHeight={120}
-        hint="Write a detailed answer. AI will evaluate your response."
-      />
+      {/* Answer */}
+      {questionType === 'mcq' && choices && choices.length > 0 ? (
+        <View style={styles.choicesContainer}>
+          <Text style={styles.choicesLabel}>Choose one answer:</Text>
+          {choices.map((choice) => {
+            const selected = answer === choice.label;
+            return (
+              <TouchableOpacity
+                key={choice.label}
+                style={[styles.choiceItem, selected && styles.choiceItemSelected]}
+                onPress={() => onAnswerChange(choice.label)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.choiceRadio, selected && styles.choiceRadioSelected]}>
+                  {selected && <View style={styles.choiceRadioDot} />}
+                </View>
+                <Text style={styles.choiceLabel}>{choice.label}</Text>
+                <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
+                  {choice.text}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : (
+        <Input
+          label="Your Answer"
+          value={answer}
+          onChangeText={onAnswerChange}
+          placeholder="Type your answer here..."
+          multiline
+          minHeight={120}
+          hint="Write a detailed answer. AI will evaluate your response."
+        />
+      )}
     </View>
   );
 }
@@ -96,6 +133,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
+  questionBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   questionNumber: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.bold,
@@ -103,9 +145,79 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  mcqBadge: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 4,
+    paddingVertical: 2,
+    paddingHorizontal: spacing.xs,
+  },
+  mcqBadgeText: {
+    fontSize: 10,
+    fontWeight: fontWeight.bold,
+    color: '#16a34a',
+  },
   questionText: {
     fontSize: fontSize.md,
     color: colors.text,
     lineHeight: fontSize.md * 1.6,
+  },
+  choicesContainer: {
+    gap: spacing.sm,
+  },
+  choicesLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  choiceItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  choiceItemSelected: {
+    borderColor: colors.primary,
+    backgroundColor: '#EFF6FF',
+  },
+  choiceRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  choiceRadioSelected: {
+    borderColor: colors.primary,
+  },
+  choiceRadioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  choiceLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.bold,
+    color: colors.primary,
+    minWidth: 20,
+    marginTop: 1,
+  },
+  choiceText: {
+    fontSize: fontSize.sm,
+    color: colors.text,
+    flex: 1,
+    lineHeight: fontSize.sm * 1.5,
+  },
+  choiceTextSelected: {
+    fontWeight: fontWeight.medium,
   },
 });

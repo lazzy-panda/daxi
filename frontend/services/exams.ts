@@ -1,8 +1,15 @@
 import { api } from './api';
 
+export interface MCQChoice {
+  label: string;
+  text: string;
+}
+
 export interface ExamQuestion {
   id: number | string;
   text: string;
+  question_type?: 'open' | 'mcq';
+  choices?: MCQChoice[];
   order?: number;
 }
 

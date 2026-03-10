@@ -10,7 +10,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { questionsService, Question } from '../../services/questions';
+import { questionsService, Question, MCQChoice } from '../../services/questions';
 import { documentsService, Document } from '../../services/documents';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -31,6 +31,7 @@ export default function QuestionsScreen() {
 
   // AI generation modal
   const [aiModalVisible, setAiModalVisible] = useState(false);
+  const [generateType, setGenerateType] = useState<'open' | 'mcq'>('open');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<number | string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -130,7 +131,9 @@ export default function QuestionsScreen() {
     setIsGenerating(true);
     setGenerateError('');
     try {
-      const generated = await questionsService.generateAI(selectedDocId, 5);
+      const generated = generateType === 'mcq'
+        ? await questionsService.generateMCQ(selectedDocId, 5)
+        : await questionsService.generateAI(selectedDocId, 5);
       setQuestions((prev) => [...generated, ...prev]);
       setAiModalVisible(false);
     } catch (err: unknown) {
@@ -218,11 +221,18 @@ export default function QuestionsScreen() {
                 >
                   <View style={[styles.questionCell, { flex: 3 }]}>
                     <Text style={styles.questionText}>{q.text}</Text>
-                    {q.auto_generated && (
-                      <View style={styles.aiBadge}>
-                        <Text style={styles.aiBadgeText}>AI</Text>
-                      </View>
-                    )}
+                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                      {q.auto_generated && (
+                        <View style={styles.aiBadge}>
+                          <Text style={styles.aiBadgeText}>AI</Text>
+                        </View>
+                      )}
+                      {q.question_type === 'mcq' && (
+                        <View style={styles.mcqBadge}>
+                          <Text style={styles.mcqBadgeText}>MCQ</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                   <Text style={styles.listCell} numberOfLines={1}>
                     {q.source || '—'}
@@ -256,8 +266,28 @@ export default function QuestionsScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Generate Questions with AI</Text>
             <Text style={styles.modalSubtitle}>
-              Select a document to generate 5 questions from
+              Select a document and question type
             </Text>
+
+            {/* Type toggle */}
+            <View style={styles.typeToggle}>
+              <TouchableOpacity
+                style={[styles.typeBtn, generateType === 'open' && styles.typeBtnActive]}
+                onPress={() => setGenerateType('open')}
+              >
+                <Text style={[styles.typeBtnText, generateType === 'open' && styles.typeBtnTextActive]}>
+                  Open-Ended
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.typeBtn, generateType === 'mcq' && styles.typeBtnActive]}
+                onPress={() => setGenerateType('mcq')}
+              >
+                <Text style={[styles.typeBtnText, generateType === 'mcq' && styles.typeBtnTextActive]}>
+                  Multiple Choice
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             {generateError ? (
               <View style={styles.errorBox}>
@@ -393,6 +423,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   aiBadgeText: { fontSize: 10, fontWeight: fontWeight.bold, color: colors.primary },
+  mcqBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 4,
+    paddingVertical: 1,
+    paddingHorizontal: spacing.xs,
+  },
+  mcqBadgeText: { fontSize: 10, fontWeight: fontWeight.bold, color: '#16a34a' },
+  typeToggle: {
+    flexDirection: 'row',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  typeBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  typeBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  typeBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.textSecondary,
+  },
+  typeBtnTextActive: {
+    color: '#fff',
+    fontWeight: fontWeight.semibold,
+  },
   listCell: { flex: 1, fontSize: fontSize.sm, color: colors.text },
   deleteBtn: {
     paddingVertical: spacing.xs,

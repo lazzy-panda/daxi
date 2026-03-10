@@ -128,9 +128,22 @@ def start_exam(
     db.commit()
     db.refresh(session)
 
+    def _safe_choices(q):
+        if q.question_type != "mcq" or not q.choices:
+            return None
+        return [{"label": c["label"], "text": c["text"]} for c in q.choices]
+
     return ExamStartOut(
         id=session.id,
-        questions=[QuestionStart(id=q.id, text=q.content) for q in selected],
+        questions=[
+            QuestionStart(
+                id=q.id,
+                text=q.content,
+                question_type=q.question_type or "open",
+                choices=_safe_choices(q),
+            )
+            for q in selected
+        ],
         started_at=session.started_at,
         status=session.status,
     )
@@ -165,29 +178,65 @@ def submit_exam(
                 detail=f"Question {qid} was not part of this exam.",
             )
 
-    # Fetch question texts for grading
+    # Fetch questions for grading
     questions = db.query(Question).filter(Question.id.in_(list(allowed_ids))).all()
-    question_text_map = {q.id: q.content for q in questions}
+    question_map = {q.id: q for q in questions}
 
-    # Build qa pairs for AI grading
-    qa_pairs = []
+    # Split into open and MCQ
+    open_pairs = []
+    mcq_pairs = []
     for qid in allowed_ids:
-        qa_pairs.append(
-            {
-                "question_id": qid,
-                "question": question_text_map.get(qid, ""),
-                "answer": answer_map.get(qid, ""),
-            }
-        )
+        q = question_map.get(qid)
+        pair = {
+            "question_id": qid,
+            "question": q.content if q else "",
+            "answer": answer_map.get(qid, ""),
+            "question_type": q.question_type if q else "open",
+            "choices": q.choices if q else [],
+        }
+        if q and q.question_type == "mcq":
+            mcq_pairs.append(pair)
+        else:
+            open_pairs.append(pair)
 
-    grading_results = ai_service.grade_exam_answers(
-        [{"question": p["question"], "answer": p["answer"]} for p in qa_pairs]
+    # Grade open questions with AI
+    open_grades = ai_service.grade_exam_answers(
+        [{"question": p["question"], "answer": p["answer"]} for p in open_pairs]
     )
+
+    # Grade MCQ instantly
+    def _grade_mcq(pair):
+        chosen = (pair["answer"] or "").strip().upper()
+        correct_label = next(
+            (c["label"].upper() for c in (pair["choices"] or []) if c.get("correct")), None
+        )
+        is_correct = chosen == correct_label
+        correct_text = next(
+            (c["text"] for c in (pair["choices"] or []) if c.get("correct")), ""
+        )
+        return {
+            "score": 10 if is_correct else 0,
+            "correct": is_correct,
+            "feedback": "Correct!" if is_correct else f"The correct answer was {correct_label}: {correct_text}",
+            "explanation": f"Correct answer: {correct_label}. {correct_text}",
+            "suggestions": "" if is_correct else "Review the relevant section in the course material.",
+            "resources": "",
+        }
+
+    mcq_grades = [_grade_mcq(p) for p in mcq_pairs]
+
+    # Merge all results preserving original order
+    grade_by_qid = {}
+    for pair, grade in zip(open_pairs, open_grades):
+        grade_by_qid[pair["question_id"]] = (pair, grade)
+    for pair, grade in zip(mcq_pairs, mcq_grades):
+        grade_by_qid[pair["question_id"]] = (pair, grade)
 
     total_score = 0.0
     exam_answers = []
 
-    for pair, grade in zip(qa_pairs, grading_results):
+    for qid in allowed_ids:
+        pair, grade = grade_by_qid[qid]
         answer = ExamAnswer(
             exam_session_id=session.id,
             question_id=pair["question_id"],

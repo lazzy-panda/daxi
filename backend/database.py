@@ -34,6 +34,8 @@ def migrate_db():
         ("users", "verification_token", "TEXT"),
         ("users", "reset_token", "TEXT"),
         ("users", "reset_token_expires", "DATETIME"),
+        ("questions", "question_type", "TEXT DEFAULT 'open'"),
+        ("questions", "choices", "TEXT"),
     ]
     with engine.connect() as conn:
         for table, column, col_type in migrations:
