@@ -113,6 +113,28 @@ def query_similar(query: str, n_results: int = 5) -> List[str]:
         return []
 
 
+def query_similar_for_doc(query: str, document_id: int, n_results: int = 5) -> List[str]:
+    """Return top-n similar chunks from a specific document."""
+    collection = _get_collection()
+    if collection is None:
+        return []
+    try:
+        embeddings = embed_texts([query])
+        embedding = embeddings[0]
+        kwargs = {
+            "n_results": n_results,
+            "where": {"document_id": document_id},
+        }
+        if embedding is not None:
+            results = collection.query(query_embeddings=[embedding], **kwargs)
+        else:
+            results = collection.query(query_texts=[query], **kwargs)
+        return results.get("documents", [[]])[0]
+    except Exception as exc:
+        logger.error("ChromaDB doc query failed: %s", exc)
+        return []
+
+
 def delete_document_chunks(document_id: int) -> bool:
     """Delete all chunks belonging to a document."""
     collection = _get_collection()

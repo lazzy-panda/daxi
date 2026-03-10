@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard', segment: '', icon: 'grid-outline' as const },
   { label: 'History', segment: 'history', icon: 'time-outline' as const },
   { label: 'Study', segment: 'study', icon: 'layers-outline' as const },
+  { label: 'Ask AI', segment: 'chat', icon: 'chatbubble-ellipses-outline' as const },
 ];
 
 export default function ExamineeLayout() {

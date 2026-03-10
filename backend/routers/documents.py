@@ -6,9 +6,12 @@ import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, status
 from sqlalchemy.orm import Session
 
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
 from config import settings
 from database import get_db
-from dependencies import require_curator
+from dependencies import get_current_user, require_curator
 from models import Document, KnowledgeChunk, OrganizationMember, User
 from schemas import DocumentOut, DocumentStatusOut
 from services import document_service
@@ -79,6 +82,107 @@ async def upload_document(
     background_tasks.add_task(document_service.process_document, doc.id, db)
 
     return doc
+
+
+@router.get("/available", response_model=List[DocumentOut])
+def list_available_documents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return ready documents visible to any authenticated org member."""
+    org_id = _get_org_id(current_user.id, db)
+    query = db.query(Document).filter(Document.status == "ready")
+    if org_id is not None:
+        query = query.filter(Document.org_id == org_id)
+    return query.order_by(Document.created_at.desc()).all()
+
+
+class ChatRequest(BaseModel):
+    question: str
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: List[str]
+
+
+@router.post("/{doc_id}/chat", response_model=ChatResponse)
+def chat_with_document(
+    doc_id: int,
+    payload: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = db.get(Document, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    # Org access check
+    org_id = _get_org_id(current_user.id, db)
+    if org_id is not None and doc.org_id != org_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+    if doc.status != "ready":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document is still processing. Try again shortly.",
+        )
+
+    # Retrieve relevant chunks
+    chunks = embedding_service.query_similar_for_doc(payload.question, doc_id, n_results=5)
+
+    if not chunks:
+        # Fall back to all chunks from DB
+        db_chunks = (
+            db.query(KnowledgeChunk)
+            .filter(KnowledgeChunk.document_id == doc_id)
+            .limit(5)
+            .all()
+        )
+        chunks = [c.content for c in db_chunks]
+
+    if not chunks:
+        return ChatResponse(
+            answer="No content found in this document to answer your question.",
+            sources=[],
+        )
+
+    # Build prompt and call OpenAI
+    if not settings.OPENAI_API_KEY:
+        return ChatResponse(
+            answer=(
+                "AI chat is not available in demo mode. "
+                "Set OPENAI_API_KEY to enable document Q&A."
+            ),
+            sources=chunks[:2],
+        )
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        context = "\n\n---\n\n".join(chunks)
+        system_prompt = (
+            "You are a helpful assistant that answers questions based strictly on the provided document excerpts. "
+            "If the answer is not in the excerpts, say so clearly. "
+            "Be concise and cite the relevant part of the text when possible."
+        )
+        user_message = f"Document excerpts:\n\n{context}\n\nQuestion: {payload.question}"
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            max_tokens=600,
+            temperature=0.2,
+        )
+        answer = response.choices[0].message.content or ""
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("Chat completion failed: %s", exc)
+        answer = "Failed to generate an answer. Please try again."
+
+    return ChatResponse(answer=answer, sources=chunks)
 
 
 @router.get("/{doc_id}/status", response_model=DocumentStatusOut)
