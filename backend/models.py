@@ -15,6 +15,9 @@ class Organization(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     owner_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    plan: Mapped[str] = mapped_column(String(50), default="free")  # free / pro / business
+    stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     members: Mapped[list["OrganizationMember"]] = relationship("OrganizationMember", back_populates="organization")
 

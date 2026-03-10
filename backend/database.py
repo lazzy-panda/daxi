@@ -37,6 +37,9 @@ def migrate_db():
         ("questions", "question_type", "TEXT DEFAULT 'open'"),
         ("questions", "choices", "TEXT"),
         ("exam_sessions", "certificate_token", "TEXT"),
+        ("organizations", "plan", "TEXT DEFAULT 'free'"),
+        ("organizations", "stripe_customer_id", "TEXT"),
+        ("organizations", "stripe_subscription_id", "TEXT"),
     ]
     with engine.connect() as conn:
         for table, column, col_type in migrations:

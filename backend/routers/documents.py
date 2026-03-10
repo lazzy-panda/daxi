@@ -12,7 +12,8 @@ from pydantic import BaseModel
 from config import settings
 from database import get_db
 from dependencies import get_current_user, require_curator
-from models import Document, KnowledgeChunk, OrganizationMember, User
+from models import Document, KnowledgeChunk, Organization, OrganizationMember, User
+from routers.billing import PLANS
 from schemas import DocumentOut, DocumentStatusOut
 from services import document_service
 from services import embedding_service
@@ -66,6 +67,19 @@ async def upload_document(
         await out_file.write(content)
 
     org_id = _get_org_id(current_user.id, db)
+
+    # Enforce plan limits
+    if org_id:
+        org = db.get(Organization, org_id)
+        plan = PLANS.get(org.plan if org else "free", PLANS["free"])
+        if plan["max_docs"] is not None:
+            current_count = db.query(Document).filter(Document.org_id == org_id).count()
+            if current_count >= plan["max_docs"]:
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail=f"Document limit reached for {plan['name']} plan ({plan['max_docs']} documents). Upgrade to add more.",
+                )
+
     doc = Document(
         filename=unique_name,
         original_filename=file.filename or unique_name,

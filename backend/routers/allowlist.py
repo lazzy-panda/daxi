@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from dependencies import require_curator
-from models import AllowlistEntry, OrganizationMember, User
+from models import AllowlistEntry, Organization, OrganizationMember, User
+from routers.billing import PLANS
 from schemas import AllowlistCreate, AllowlistOut
 
 
@@ -57,6 +58,18 @@ def add_to_allowlist(
             detail="Email already in allowlist.",
         )
     org_id = _get_org_id(current_user.id, db)
+
+    # Enforce plan limits
+    if org_id:
+        org = db.get(Organization, org_id)
+        plan = PLANS.get(org.plan if org else "free", PLANS["free"])
+        if plan["max_users"] is not None:
+            current_count = db.query(AllowlistEntry).filter(AllowlistEntry.org_id == org_id).count()
+            if current_count >= plan["max_users"]:
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail=f"User limit reached for {plan['name']} plan ({plan['max_users']} users). Upgrade to add more.",
+                )
     entry = AllowlistEntry(
         email=payload.email,
         role=payload.role,

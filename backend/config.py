@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     BREVO_API_KEY: Optional[str] = None
     FRONTEND_URL: str = "http://localhost:8081"
     EMAIL_FROM: str = "Daxi <noreply@daxi.app>"
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    STRIPE_PRO_PRICE_ID: Optional[str] = None       # e.g. price_xxx
+    STRIPE_BUSINESS_PRICE_ID: Optional[str] = None  # e.g. price_yyy
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
