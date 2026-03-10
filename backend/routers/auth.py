@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 
 from database import get_db
 from dependencies import create_access_token, get_current_user
-from models import User, AllowlistEntry
+from models import User, AllowlistEntry, OrganizationMember
 from schemas import UserRegister, UserLogin, TokenResponse, UserOut  # noqa: F401
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -46,6 +46,12 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
         role=entry.role,
     )
     db.add(user)
+    db.flush()
+
+    if entry.org_id:
+        member = OrganizationMember(org_id=entry.org_id, user_id=user.id, role=entry.role)
+        db.add(member)
+
     db.commit()
     db.refresh(user)
     token = create_access_token({"sub": str(user.id)})

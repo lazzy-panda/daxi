@@ -13,6 +13,7 @@ from models import (
     ExamSession,
     FlashCard,
     Notification,
+    OrganizationMember,
     Question,
     User,
 )
@@ -32,6 +33,11 @@ from services import ai_service
 router = APIRouter(prefix="/api/exams", tags=["exams"])
 
 EXAM_QUESTION_COUNT = 10
+
+
+def _get_org_id(user_id: int, db: Session):
+    member = db.query(OrganizationMember).filter(OrganizationMember.user_id == user_id).first()
+    return member.org_id if member else None
 PASSING_SCORE = 85.0  # percent
 COOLDOWN_HOURS = 72
 
@@ -99,7 +105,11 @@ def start_exam(
     db.flush()
 
     # Select questions
-    all_questions = db.query(Question).all()
+    org_id = _get_org_id(current_user.id, db)
+    questions_query = db.query(Question)
+    if org_id is not None:
+        questions_query = questions_query.filter(Question.org_id == org_id)
+    all_questions = questions_query.all()
     if len(all_questions) < EXAM_QUESTION_COUNT:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -112,6 +122,7 @@ def start_exam(
         user_id=current_user.id,
         questions_json={"question_ids": question_ids},
         status="in_progress",
+        org_id=org_id,
     )
     db.add(session)
     db.commit()
@@ -205,6 +216,7 @@ def submit_exam(
     db.flush()
 
     # Generate remediation flash cards for weak/wrong answers (score < 7)
+    remediation_org_id = _get_org_id(current_user.id, db)
     for answer, grade, pair in exam_answers:
         if (grade.get("score") or 0) < 7:
             cards_data = ai_service.generate_remediation_flashcards(
@@ -221,6 +233,7 @@ def submit_exam(
                     is_auto_generated=True,
                     exam_answer_id=answer.id,
                     created_by=current_user.id,
+                    org_id=remediation_org_id,
                 )
                 db.add(card)
 
@@ -234,8 +247,20 @@ def submit_exam(
     )
     db.add(notif)
 
-    # Notify all curators
-    curators = db.query(User).filter(User.role == "curator", User.is_active == True).all()
+    # Notify curators in the same org (or all curators if no org)
+    exam_org_id = _get_org_id(current_user.id, db)
+    if exam_org_id is not None:
+        curator_member_ids = [
+            m.user_id for m in db.query(OrganizationMember).filter(
+                OrganizationMember.org_id == exam_org_id,
+                OrganizationMember.role.in_(["owner", "curator"]),
+            ).all()
+        ]
+        curators = db.query(User).filter(
+            User.id.in_(curator_member_ids), User.is_active == True
+        ).all()
+    else:
+        curators = db.query(User).filter(User.role == "curator", User.is_active == True).all()
     for curator in curators:
         curator_notif = Notification(
             user_id=curator.id,

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
-from models import User
+from models import User, Organization, OrganizationMember
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -61,3 +61,26 @@ def require_examinee(current_user: User = Depends(get_current_user)) -> User:
             detail="Examinee role required",
         )
     return current_user
+
+
+def get_current_org(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Optional[Organization]:
+    member = db.query(OrganizationMember).filter(OrganizationMember.user_id == current_user.id).first()
+    if member is None:
+        return None
+    return db.get(Organization, member.org_id)
+
+
+def require_org(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Organization:
+    member = db.query(OrganizationMember).filter(OrganizationMember.user_id == current_user.id).first()
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You don't belong to any organization. Create one first.",
+        )
+    return db.get(Organization, member.org_id)

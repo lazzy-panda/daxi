@@ -9,10 +9,15 @@ from sqlalchemy.orm import Session
 from config import settings
 from database import get_db
 from dependencies import require_curator
-from models import Document, KnowledgeChunk, User
+from models import Document, KnowledgeChunk, OrganizationMember, User
 from schemas import DocumentOut, DocumentStatusOut
 from services import document_service
 from services import embedding_service
+
+
+def _get_org_id(user_id: int, db: Session):
+    member = db.query(OrganizationMember).filter(OrganizationMember.user_id == user_id).first()
+    return member.org_id if member else None
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -26,9 +31,13 @@ def _get_extension(filename: str) -> str:
 @router.get("", response_model=List[DocumentOut])
 def list_documents(
     db: Session = Depends(get_db),
-    _: User = Depends(require_curator),
+    current_user: User = Depends(require_curator),
 ):
-    return db.query(Document).order_by(Document.created_at.desc()).all()
+    org_id = _get_org_id(current_user.id, db)
+    query = db.query(Document)
+    if org_id is not None:
+        query = query.filter(Document.org_id == org_id)
+    return query.order_by(Document.created_at.desc()).all()
 
 
 @router.post("/upload", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
@@ -53,6 +62,7 @@ async def upload_document(
         content = await file.read()
         await out_file.write(content)
 
+    org_id = _get_org_id(current_user.id, db)
     doc = Document(
         filename=unique_name,
         original_filename=file.filename or unique_name,
@@ -60,6 +70,7 @@ async def upload_document(
         file_type=ext,
         status="processing",
         uploaded_by=current_user.id,
+        org_id=org_id,
     )
     db.add(doc)
     db.commit()

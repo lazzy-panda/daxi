@@ -22,10 +22,39 @@ def get_db():
         db.close()
 
 
+def migrate_db():
+    """Add org_id columns to existing SQLite tables if they don't already exist."""
+    migrations = [
+        ("allowlist", "org_id", "INTEGER"),
+        ("documents", "org_id", "INTEGER"),
+        ("questions", "org_id", "INTEGER"),
+        ("flash_cards", "org_id", "INTEGER"),
+        ("exam_sessions", "org_id", "INTEGER"),
+    ]
+    with engine.connect() as conn:
+        for table, column, col_type in migrations:
+            try:
+                # Check if column already exists
+                result = conn.execute(
+                    __import__("sqlalchemy").text(f"PRAGMA table_info({table})")
+                )
+                existing_columns = [row[1] for row in result]
+                if column not in existing_columns:
+                    conn.execute(
+                        __import__("sqlalchemy").text(
+                            f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+                        )
+                    )
+                    conn.commit()
+            except Exception:
+                pass  # Table may not exist yet; create_all will handle it
+
+
 def init_db():
     from models import (  # noqa: F401
         User, AllowlistEntry, Document, KnowledgeChunk,
         Question, FlashCard, ExamSession, ExamAnswer,
-        FlashCardReview, Notification,
+        FlashCardReview, Notification, Organization, OrganizationMember,
     )
     Base.metadata.create_all(bind=engine)
+    migrate_db()

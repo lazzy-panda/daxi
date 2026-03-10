@@ -5,8 +5,13 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from dependencies import require_curator
-from models import AllowlistEntry, User
+from models import AllowlistEntry, OrganizationMember, User
 from schemas import AllowlistCreate, AllowlistOut
+
+
+def _get_org_id(user_id: int, db: Session):
+    member = db.query(OrganizationMember).filter(OrganizationMember.user_id == user_id).first()
+    return member.org_id if member else None
 
 
 def _with_used(entries: List[AllowlistEntry], db: Session) -> List[AllowlistOut]:
@@ -29,9 +34,13 @@ router = APIRouter(prefix="/api/allowlist", tags=["allowlist"])
 @router.get("", response_model=List[AllowlistOut])
 def list_allowlist(
     db: Session = Depends(get_db),
-    _: User = Depends(require_curator),
+    current_user: User = Depends(require_curator),
 ):
-    entries = db.query(AllowlistEntry).order_by(AllowlistEntry.created_at.desc()).all()
+    org_id = _get_org_id(current_user.id, db)
+    query = db.query(AllowlistEntry)
+    if org_id is not None:
+        query = query.filter(AllowlistEntry.org_id == org_id)
+    entries = query.order_by(AllowlistEntry.created_at.desc()).all()
     return _with_used(entries, db)
 
 
@@ -47,10 +56,12 @@ def add_to_allowlist(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already in allowlist.",
         )
+    org_id = _get_org_id(current_user.id, db)
     entry = AllowlistEntry(
         email=payload.email,
         role=payload.role,
         added_by=current_user.id,
+        org_id=org_id,
     )
     db.add(entry)
     db.commit()

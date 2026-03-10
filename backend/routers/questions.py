@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from dependencies import require_curator
-from models import Document, KnowledgeChunk, Question, User
+from models import Document, KnowledgeChunk, OrganizationMember, Question, User
 from schemas import (
     QuestionCreate,
     QuestionGenerateRequest,
@@ -19,12 +19,21 @@ from services import ai_service
 router = APIRouter(prefix="/api/questions", tags=["questions"])
 
 
+def _get_org_id(user_id: int, db: Session):
+    member = db.query(OrganizationMember).filter(OrganizationMember.user_id == user_id).first()
+    return member.org_id if member else None
+
+
 @router.get("", response_model=List[QuestionOut])
 def list_questions(
     db: Session = Depends(get_db),
-    _: User = Depends(require_curator),
+    current_user: User = Depends(require_curator),
 ):
-    return db.query(Question).order_by(Question.created_at.desc()).all()
+    org_id = _get_org_id(current_user.id, db)
+    query = db.query(Question)
+    if org_id is not None:
+        query = query.filter(Question.org_id == org_id)
+    return query.order_by(Question.created_at.desc()).all()
 
 
 @router.post("", response_model=QuestionOut, status_code=status.HTTP_201_CREATED)
@@ -33,10 +42,12 @@ def create_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_curator),
 ):
+    org_id = _get_org_id(current_user.id, db)
     q = Question(
         content=payload.content,
         source_type="manual",
         created_by=current_user.id,
+        org_id=org_id,
     )
     db.add(q)
     db.commit()
@@ -50,9 +61,12 @@ def generate_questions(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_curator),
 ):
+    org_id = _get_org_id(current_user.id, db)
     doc = db.get(Document, payload.document_id)
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    if org_id is not None and doc.org_id != org_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Document does not belong to your organization.")
     if doc.status != "ready":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -76,6 +90,7 @@ def generate_questions(
             source_type="ai_generated",
             source_document_id=payload.document_id,
             created_by=current_user.id,
+            org_id=org_id,
         )
         db.add(q)
         db.flush()
@@ -95,12 +110,14 @@ def import_questions_json(
 ):
     if not payload:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No questions provided.")
+    org_id = _get_org_id(current_user.id, db)
     created = []
     for item in payload:
         q = Question(
             content=item.content,
             source_type="imported",
             created_by=current_user.id,
+            org_id=org_id,
         )
         db.add(q)
         db.flush()
@@ -123,6 +140,7 @@ async def import_questions_csv(
     raw = await file.read()
     text = raw.decode("utf-8", errors="replace")
     reader = csv.DictReader(io.StringIO(text))
+    org_id = _get_org_id(current_user.id, db)
 
     created = []
     for row in reader:
@@ -135,6 +153,7 @@ async def import_questions_csv(
             content=content,
             source_type="imported",
             created_by=current_user.id,
+            org_id=org_id,
         )
         db.add(q)
         db.flush()

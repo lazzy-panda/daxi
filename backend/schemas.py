@@ -306,6 +306,29 @@ class ExamResultDetail(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Organizations ─────────────────────────────────────────────────────────────
+
+class OrgCreate(BaseModel):
+    name: str
+
+
+class OrgOut(BaseModel):
+    id: int
+    name: str
+    owner_id: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class OrgMemberOut(BaseModel):
+    id: int
+    user_id: int
+    role: str
+
+    model_config = {"from_attributes": True}
+
+
 # ── Notifications ─────────────────────────────────────────────────────────────
 
 class NotificationOut(BaseModel):

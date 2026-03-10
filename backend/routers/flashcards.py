@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from dependencies import get_current_user, require_curator
-from models import Document, FlashCard, FlashCardReview, KnowledgeChunk, User
+from models import Document, FlashCard, FlashCardReview, KnowledgeChunk, OrganizationMember, User
 from schemas import (
     FlashCardCreate,
     FlashCardGenerateRequest,
@@ -24,6 +24,11 @@ from services.spaced_repetition import compute_next_review
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
 
 
+def _get_org_id(user_id: int, db: Session):
+    member = db.query(OrganizationMember).filter(OrganizationMember.user_id == user_id).first()
+    return member.org_id if member else None
+
+
 # ── Study queue (examinee) ────────────────────────────────────────────────────
 
 @router.get("/study", response_model=List[FlashCardStudyOut])
@@ -33,6 +38,7 @@ def get_study_queue(
 ):
     """Return flash cards due for review today for the current user."""
     today = date.today()
+    org_id = _get_org_id(current_user.id, db)
 
     # Get all reviews for this user where next_review_date <= today
     due_reviews = (
@@ -46,7 +52,10 @@ def get_study_queue(
     reviewed_card_ids = {r.flash_card_id for r in due_reviews}
 
     # Also include cards that have no review record yet (new cards)
-    all_cards = db.query(FlashCard).all()
+    cards_query = db.query(FlashCard)
+    if org_id is not None:
+        cards_query = cards_query.filter(FlashCard.org_id == org_id)
+    all_cards = cards_query.all()
     unreviewed_cards = [c for c in all_cards if c.id not in reviewed_card_ids]
 
     result = []
@@ -94,10 +103,11 @@ def list_flashcards(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role == "curator":
-        return db.query(FlashCard).order_by(FlashCard.created_at.desc()).all()
-    # Examinee: return all available cards (same as study queue source)
-    return db.query(FlashCard).order_by(FlashCard.created_at.desc()).all()
+    org_id = _get_org_id(current_user.id, db)
+    query = db.query(FlashCard)
+    if org_id is not None:
+        query = query.filter(FlashCard.org_id == org_id)
+    return query.order_by(FlashCard.created_at.desc()).all()
 
 
 @router.post("", response_model=FlashCardOut, status_code=status.HTTP_201_CREATED)
@@ -106,12 +116,14 @@ def create_flashcard(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_curator),
 ):
+    org_id = _get_org_id(current_user.id, db)
     card = FlashCard(
         front=payload.front,
         back=payload.back,
         source_reference=payload.source_reference,
         is_auto_generated=False,
         created_by=current_user.id,
+        org_id=org_id,
     )
     db.add(card)
     db.commit()
@@ -127,9 +139,12 @@ def generate_flashcards(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_curator),
 ):
+    org_id = _get_org_id(current_user.id, db)
     doc = db.get(Document, payload.document_id)
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    if org_id is not None and doc.org_id != org_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Document does not belong to your organization.")
     if doc.status != "ready":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -154,6 +169,7 @@ def generate_flashcards(
             source_reference=f"document:{payload.document_id}",
             is_auto_generated=True,
             created_by=current_user.id,
+            org_id=org_id,
         )
         db.add(card)
         db.flush()
@@ -175,6 +191,7 @@ def import_flashcards_json(
 ):
     if not payload:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No flash cards provided.")
+    org_id = _get_org_id(current_user.id, db)
     created = []
     for item in payload:
         card = FlashCard(
@@ -183,6 +200,7 @@ def import_flashcards_json(
             source_reference=item.source_reference,
             is_auto_generated=False,
             created_by=current_user.id,
+            org_id=org_id,
         )
         db.add(card)
         db.flush()
@@ -203,6 +221,7 @@ async def import_flashcards_csv(
     raw = await file.read()
     text = raw.decode("utf-8", errors="replace")
     reader = csv.DictReader(io.StringIO(text))
+    org_id = _get_org_id(current_user.id, db)
 
     created = []
     for row in reader:
@@ -216,6 +235,7 @@ async def import_flashcards_csv(
             source_reference=(row.get("source_reference") or "").strip() or None,
             is_auto_generated=False,
             created_by=current_user.id,
+            org_id=org_id,
         )
         db.add(card)
         db.flush()

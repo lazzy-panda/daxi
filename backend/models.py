@@ -8,6 +8,29 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
 
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    owner_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    members: Mapped[list["OrganizationMember"]] = relationship("OrganizationMember", back_populates="organization")
+
+
+class OrganizationMember(Base):
+    __tablename__ = "organization_members"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    org_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), nullable=False)  # owner/curator/examinee
+
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="members")
+    user: Mapped["User"] = relationship("User")
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -38,6 +61,7 @@ class AllowlistEntry(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     role: Mapped[str] = mapped_column(String(50), nullable=False)  # curator / examinee
     added_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    org_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     added_by_user: Mapped[Optional["User"]] = relationship(
@@ -55,6 +79,7 @@ class Document(Base):
     file_type: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="processing")  # processing/ready/failed
     uploaded_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    org_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     uploader: Mapped["User"] = relationship("User", back_populates="documents")
@@ -86,6 +111,7 @@ class Question(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    org_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=True)
 
     source_document: Mapped[Optional["Document"]] = relationship("Document", back_populates="questions")
     creator: Mapped[Optional["User"]] = relationship("User", back_populates="questions")
@@ -105,6 +131,7 @@ class FlashCard(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    org_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=True)
 
     creator: Mapped[Optional["User"]] = relationship("User", back_populates="flash_cards")
     exam_answer: Mapped[Optional["ExamAnswer"]] = relationship(
@@ -124,6 +151,7 @@ class ExamSession(Base):
     passed: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="in_progress")  # in_progress/completed
     questions_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    org_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="exam_sessions")
     answers: Mapped[list["ExamAnswer"]] = relationship("ExamAnswer", back_populates="exam_session")
