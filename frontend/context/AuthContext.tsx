@@ -8,6 +8,7 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService, User } from '../services/auth';
 import { ApiError } from '../services/api';
+import { organizationsService, Org } from '../services/organizations';
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
@@ -15,18 +16,32 @@ const USER_KEY = 'auth_user';
 interface AuthContextValue {
   user: User | null;
   token: string | null;
+  org: Org | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
+  createOrg: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+async function fetchOrgSafe(): Promise<Org | null> {
+  try {
+    return await organizationsService.getMyOrg();
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return null;
+    }
+    throw err;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [org, setOrg] = useState<Org | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -48,6 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const me = await authService.me();
           setUser(me as User);
           await AsyncStorage.setItem(USER_KEY, JSON.stringify(me));
+          const fetchedOrg = await fetchOrgSafe();
+          setOrg(fetchedOrg);
         } catch (err) {
           if (err instanceof ApiError && err.status === 401) {
             await clearSession();
@@ -65,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
     setToken(null);
     setUser(null);
+    setOrg(null);
   };
 
   const login = useCallback(async (email: string, password: string) => {
@@ -73,6 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
     setToken(response.access_token);
     setUser(response.user);
+    const fetchedOrg = await fetchOrgSafe();
+    setOrg(fetchedOrg);
   }, []);
 
   const register = useCallback(
@@ -82,6 +102,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
       setToken(response.access_token);
       setUser(response.user);
+      const fetchedOrg = await fetchOrgSafe();
+      setOrg(fetchedOrg);
     },
     []
   );
@@ -90,16 +112,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await clearSession();
   }, []);
 
+  const createOrg = useCallback(async (name: string) => {
+    const newOrg = await organizationsService.create(name);
+    setOrg(newOrg);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
+        org,
         isLoading,
         isAuthenticated: !!token && !!user,
         login,
         register,
         logout,
+        createOrg,
       }}
     >
       {children}

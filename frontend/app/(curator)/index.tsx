@@ -29,7 +29,7 @@ const STAT_CONFIG = [
 ];
 
 export default function CuratorDashboard() {
-  const { user } = useAuthContext();
+  const { user, org } = useAuthContext();
 
   const [stats, setStats] = useState<Stats>({
     totalQuestions: 0,
@@ -78,7 +78,9 @@ export default function CuratorDashboard() {
           <Text style={styles.greeting}>
             Welcome back, {user?.name || user?.email?.split('@')[0]}
           </Text>
-          <Text style={styles.subtitle}>Here's an overview of your learning platform</Text>
+          <Text style={styles.subtitle}>
+            {org ? org.name : "Here's an overview of your learning platform"}
+          </Text>
         </View>
 
         <View style={styles.statsGrid}>

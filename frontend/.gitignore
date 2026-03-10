@@ -12,3 +12,4 @@ web-build/
 .env
 .env.local
 *.log
+.vercel

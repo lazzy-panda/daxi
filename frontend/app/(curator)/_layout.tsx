@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,9 +22,15 @@ const NAV_ITEMS = [
 ];
 
 export default function CuratorLayout() {
-  const { user, logout } = useAuthContext();
+  const { user, logout, org, isLoading } = useAuthContext();
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (!isLoading && org === null && pathname !== '/setup') {
+      router.replace('/(curator)/setup' as never);
+    }
+  }, [isLoading, org, pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -43,6 +49,9 @@ export default function CuratorLayout() {
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>Curator</Text>
             </View>
+            {org && (
+              <Text style={styles.orgName}>{org.name}</Text>
+            )}
           </View>
           <View style={styles.topBarRight}>
             <Text style={styles.userEmail}>{user?.email}</Text>
@@ -145,6 +154,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
     color: colors.primary,
+  },
+  orgName: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.textSecondary,
+    display: Platform.OS === 'web' ? 'flex' : 'none',
   },
   topBarRight: {
     flexDirection: 'row',
