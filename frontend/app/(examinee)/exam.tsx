@@ -129,14 +129,14 @@ export default function ExamScreen() {
             </View>
             <Text style={styles.startTitle}>Ready to begin?</Text>
             <Text style={styles.startDesc}>
-              You'll receive 10 questions. Take your time and write detailed answers.
-              Your responses will be evaluated by AI.
+              You'll receive 10 questions — open-ended and multiple choice.
+              Navigate freely and answer at your own pace.
             </Text>
             <View style={styles.rulesList}>
               {[
-                '10 questions, answer all at your own pace',
+                '10 questions, mix of open-ended and multiple choice',
                 'Navigate freely between questions',
-                'AI will grade each answer individually',
+                'Multiple choice: graded instantly; open-ended: graded by AI',
                 'Results shown immediately after submission',
                 'Minimum passing score: 85%',
               ].map((rule, i) => (
@@ -216,10 +216,19 @@ export default function ExamScreen() {
           {session.questions.map((q, idx) => {
             const ans = answers[String(q.id)] || '';
             const answered = !!ans.trim();
+            const isMcq = q.question_type === 'mcq' && q.choices;
+            const choiceText = isMcq
+              ? q.choices!.find((c) => c.label === ans)?.text
+              : null;
             return (
               <View key={q.id} style={styles.reviewItem}>
                 <View style={styles.reviewItemHeader}>
                   <Text style={styles.reviewQNum}>Q{idx + 1}</Text>
+                  {isMcq && (
+                    <View style={styles.reviewMcqBadge}>
+                      <Text style={styles.reviewMcqBadgeText}>MCQ</Text>
+                    </View>
+                  )}
                   <View
                     style={[
                       styles.reviewStatusDot,
@@ -242,9 +251,15 @@ export default function ExamScreen() {
                   {q.text}
                 </Text>
                 {answered ? (
-                  <Text style={styles.reviewAnswer} numberOfLines={3}>
-                    {ans}
-                  </Text>
+                  isMcq ? (
+                    <Text style={styles.reviewAnswer}>
+                      {ans}: {choiceText || ans}
+                    </Text>
+                  ) : (
+                    <Text style={styles.reviewAnswer} numberOfLines={3}>
+                      {ans}
+                    </Text>
+                  )
                 ) : (
                   <Text style={styles.reviewNoAnswer}>No answer provided</Text>
                 )}
@@ -458,6 +473,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  reviewMcqBadge: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 4,
+    paddingVertical: 1,
+    paddingHorizontal: spacing.xs,
+  },
+  reviewMcqBadgeText: {
+    fontSize: 10,
+    fontWeight: fontWeight.bold,
+    color: '#16a34a',
   },
   reviewQNum: {
     fontSize: fontSize.xs,
