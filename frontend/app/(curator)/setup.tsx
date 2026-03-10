@@ -22,7 +22,7 @@ export default function OrgSetupScreen() {
     setError('');
     try {
       await createOrg(name.trim());
-      router.replace('/(curator)');
+      router.replace('/(curator)/onboarding' as never);
     } catch {
       setError('Failed to create organization. Please try again.');
     } finally {
