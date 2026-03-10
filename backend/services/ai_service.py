@@ -223,6 +223,85 @@ def generate_flashcards_from_text(text: str, count: int = 5) -> List[Dict[str, s
         ]
 
 
+# ── Short Answer Generation ───────────────────────────────────────────────────
+
+SHORT_GEN_PROMPT = """You are an expert educator. Always respond in English.
+Given the following educational content, generate {count} short-answer questions.
+Each question should require a 1-2 sentence answer that tests factual recall or basic understanding.
+
+Return a JSON array of strings (the questions only).
+Return ONLY valid JSON array, no markdown, no extra text."""
+
+
+def generate_short_from_text(text: str, count: int = 5) -> List[str]:
+    """Generate short-answer questions from document text."""
+    client = _get_client()
+    if client is None:
+        return [f"Mock Short Q {i+1}: Name a key term from the material." for i in range(count)]
+
+    system = SHORT_GEN_PROMPT.format(count=count)
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": text[:8000]},
+            ],
+            temperature=0.6,
+            max_tokens=800,
+        )
+        raw = response.choices[0].message.content.strip()
+        questions = json.loads(raw)
+        return [str(q) for q in questions] if isinstance(questions, list) else []
+    except Exception as exc:
+        logger.error("Short answer generation failed: %s", exc)
+        return [f"Mock Short Q {i+1}: Name a key term from the material." for i in range(count)]
+
+
+# ── True/False Generation ──────────────────────────────────────────────────────
+
+TF_GEN_PROMPT = """You are an expert educator. Always respond in English.
+Given the following educational content, generate {count} true/false questions.
+Each statement should be clearly true or false based on the material.
+
+Return a JSON array of objects with fields:
+- question: the statement to evaluate
+- correct: boolean (true if the statement is correct)
+
+Return ONLY valid JSON array, no markdown, no extra text."""
+
+
+def generate_true_false_from_text(text: str, count: int = 5) -> List[Dict[str, Any]]:
+    """Generate true/false questions from document text."""
+    client = _get_client()
+    if client is None:
+        return [
+            {
+                "question": f"Mock T/F {i+1}: This statement about the material is true.",
+                "correct": i % 2 == 0,
+            }
+            for i in range(count)
+        ]
+
+    system = TF_GEN_PROMPT.format(count=count)
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": text[:8000]},
+            ],
+            temperature=0.6,
+            max_tokens=1000,
+        )
+        raw = response.choices[0].message.content.strip()
+        items = json.loads(raw)
+        return items if isinstance(items, list) else []
+    except Exception as exc:
+        logger.error("True/False generation failed: %s", exc)
+        return []
+
+
 # ── MCQ Generation ────────────────────────────────────────────────────────────
 
 MCQ_GEN_PROMPT = """You are an expert educator. Always respond in English.

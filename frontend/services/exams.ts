@@ -8,7 +8,7 @@ export interface MCQChoice {
 export interface ExamQuestion {
   id: number | string;
   text: string;
-  question_type?: 'open' | 'mcq';
+  question_type?: 'open' | 'short' | 'mcq' | 'true_false';
   choices?: MCQChoice[];
   order?: number;
 }

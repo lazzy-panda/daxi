@@ -9,7 +9,7 @@ export interface MCQChoice {
 export interface Question {
   id: number | string;
   text: string;
-  question_type?: 'open' | 'mcq';
+  question_type?: 'open' | 'short' | 'mcq' | 'true_false';
   choices?: MCQChoice[];
   created_at?: string;
   source?: string;
@@ -41,6 +41,18 @@ export const questionsService = {
 
   generateMCQ: (documentId: number | string, count = 5) =>
     api.post<Question[]>('/questions/generate/mcq', {
+      document_id: documentId,
+      count,
+    }),
+
+  generateShort: (documentId: number | string, count = 5) =>
+    api.post<Question[]>('/questions/generate/short', {
+      document_id: documentId,
+      count,
+    }),
+
+  generateTrueFalse: (documentId: number | string, count = 5) =>
+    api.post<Question[]>('/questions/generate/true-false', {
       document_id: documentId,
       count,
     }),

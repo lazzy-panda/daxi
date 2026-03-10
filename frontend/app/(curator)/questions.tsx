@@ -31,7 +31,7 @@ export default function QuestionsScreen() {
 
   // AI generation modal
   const [aiModalVisible, setAiModalVisible] = useState(false);
-  const [generateType, setGenerateType] = useState<'open' | 'mcq'>('open');
+  const [generateType, setGenerateType] = useState<'open' | 'short' | 'mcq' | 'true_false'>('open');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<number | string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -131,9 +131,11 @@ export default function QuestionsScreen() {
     setIsGenerating(true);
     setGenerateError('');
     try {
-      const generated = generateType === 'mcq'
-        ? await questionsService.generateMCQ(selectedDocId, 5)
-        : await questionsService.generateAI(selectedDocId, 5);
+      const generated =
+        generateType === 'mcq' ? await questionsService.generateMCQ(selectedDocId, 5) :
+        generateType === 'short' ? await questionsService.generateShort(selectedDocId, 5) :
+        generateType === 'true_false' ? await questionsService.generateTrueFalse(selectedDocId, 5) :
+        await questionsService.generateAI(selectedDocId, 5);
       setQuestions((prev) => [...generated, ...prev]);
       setAiModalVisible(false);
     } catch (err: unknown) {
@@ -221,7 +223,7 @@ export default function QuestionsScreen() {
                 >
                   <View style={[styles.questionCell, { flex: 3 }]}>
                     <Text style={styles.questionText}>{q.text}</Text>
-                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
                       {q.auto_generated && (
                         <View style={styles.aiBadge}>
                           <Text style={styles.aiBadgeText}>AI</Text>
@@ -230,6 +232,16 @@ export default function QuestionsScreen() {
                       {q.question_type === 'mcq' && (
                         <View style={styles.mcqBadge}>
                           <Text style={styles.mcqBadgeText}>MCQ</Text>
+                        </View>
+                      )}
+                      {q.question_type === 'true_false' && (
+                        <View style={[styles.mcqBadge, { backgroundColor: '#FFF7ED' }]}>
+                          <Text style={[styles.mcqBadgeText, { color: '#c2410c' }]}>T/F</Text>
+                        </View>
+                      )}
+                      {q.question_type === 'short' && (
+                        <View style={[styles.mcqBadge, { backgroundColor: '#F5F3FF' }]}>
+                          <Text style={[styles.mcqBadgeText, { color: '#7c3aed' }]}>Short</Text>
                         </View>
                       )}
                     </View>
@@ -270,23 +282,23 @@ export default function QuestionsScreen() {
             </Text>
 
             {/* Type toggle */}
-            <View style={styles.typeToggle}>
-              <TouchableOpacity
-                style={[styles.typeBtn, generateType === 'open' && styles.typeBtnActive]}
-                onPress={() => setGenerateType('open')}
-              >
-                <Text style={[styles.typeBtnText, generateType === 'open' && styles.typeBtnTextActive]}>
-                  Open-Ended
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.typeBtn, generateType === 'mcq' && styles.typeBtnActive]}
-                onPress={() => setGenerateType('mcq')}
-              >
-                <Text style={[styles.typeBtnText, generateType === 'mcq' && styles.typeBtnTextActive]}>
-                  Multiple Choice
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.typeToggleGrid}>
+              {([
+                { key: 'open', label: 'Open-Ended' },
+                { key: 'short', label: 'Short Answer' },
+                { key: 'mcq', label: 'Multiple Choice' },
+                { key: 'true_false', label: 'True / False' },
+              ] as const).map(({ key, label }) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.typeBtn, generateType === key && styles.typeBtnActive]}
+                  onPress={() => setGenerateType(key)}
+                >
+                  <Text style={[styles.typeBtnText, generateType === key && styles.typeBtnTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {generateError ? (
@@ -438,11 +450,21 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
   },
+  typeToggleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
   typeBtn: {
-    flex: 1,
+    width: '50%',
     paddingVertical: spacing.sm,
     alignItems: 'center',
     backgroundColor: colors.surface,
+    borderWidth: 0.5,
+    borderColor: colors.border,
   },
   typeBtnActive: {
     backgroundColor: colors.primary,

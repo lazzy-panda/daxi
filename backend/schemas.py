@@ -116,6 +116,16 @@ class MCQGenerateRequest(BaseModel):
     count: int = 5
 
 
+class ShortGenerateRequest(BaseModel):
+    document_id: int
+    count: int = 5
+
+
+class TrueFalseGenerateRequest(BaseModel):
+    document_id: int
+    count: int = 5
+
+
 class QuestionImportItem(BaseModel):
     content: Optional[str] = None
     text: Optional[str] = None

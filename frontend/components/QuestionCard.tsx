@@ -8,7 +8,7 @@ interface QuestionCardProps {
   questionNumber: number;
   totalQuestions: number;
   questionText: string;
-  questionType?: 'open' | 'mcq';
+  questionType?: 'open' | 'short' | 'mcq' | 'true_false';
   choices?: MCQChoice[];
   answer: string;
   onAnswerChange: (text: string) => void;
@@ -49,14 +49,26 @@ export function QuestionCard({
               <Text style={styles.mcqBadgeText}>Multiple Choice</Text>
             </View>
           )}
+          {questionType === 'true_false' && (
+            <View style={[styles.mcqBadge, { backgroundColor: '#FFF7ED' }]}>
+              <Text style={[styles.mcqBadgeText, { color: '#c2410c' }]}>True / False</Text>
+            </View>
+          )}
+          {questionType === 'short' && (
+            <View style={[styles.mcqBadge, { backgroundColor: '#F5F3FF' }]}>
+              <Text style={[styles.mcqBadgeText, { color: '#7c3aed' }]}>Short Answer</Text>
+            </View>
+          )}
         </View>
         <Text style={styles.questionText}>{questionText}</Text>
       </View>
 
       {/* Answer */}
-      {questionType === 'mcq' && choices && choices.length > 0 ? (
+      {(questionType === 'mcq' || questionType === 'true_false') && choices && choices.length > 0 ? (
         <View style={styles.choicesContainer}>
-          <Text style={styles.choicesLabel}>Choose one answer:</Text>
+          <Text style={styles.choicesLabel}>
+            {questionType === 'true_false' ? 'Is this statement true or false?' : 'Choose one answer:'}
+          </Text>
           {choices.map((choice) => {
             const selected = answer === choice.label;
             return (
@@ -77,6 +89,16 @@ export function QuestionCard({
             );
           })}
         </View>
+      ) : questionType === 'short' ? (
+        <Input
+          label="Your Answer"
+          value={answer}
+          onChangeText={onAnswerChange}
+          placeholder="Write a brief answer (1-2 sentences)..."
+          multiline
+          minHeight={64}
+          hint="Keep it concise. AI will evaluate your response."
+        />
       ) : (
         <Input
           label="Your Answer"

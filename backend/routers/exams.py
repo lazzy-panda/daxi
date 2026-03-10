@@ -129,7 +129,7 @@ def start_exam(
     db.refresh(session)
 
     def _safe_choices(q):
-        if q.question_type != "mcq" or not q.choices:
+        if q.question_type not in ("mcq", "true_false") or not q.choices:
             return None
         return [{"label": c["label"], "text": c["text"]} for c in q.choices]
 
@@ -194,7 +194,7 @@ def submit_exam(
             "question_type": q.question_type if q else "open",
             "choices": q.choices if q else [],
         }
-        if q and q.question_type == "mcq":
+        if q and q.question_type in ("mcq", "true_false"):
             mcq_pairs.append(pair)
         else:
             open_pairs.append(pair)
