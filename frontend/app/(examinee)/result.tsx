@@ -110,7 +110,7 @@ export default function ResultScreen() {
                 You didn't reach the 85% passing threshold. Study the feedback below and try again.
               </Text>
             </View>
-          )}
+          ) : null}
 
           <Button
             title="Study Flash Cards"
