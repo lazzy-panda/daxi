@@ -5,7 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  TouchableOpacity,
+  Linking,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { examsService, ExamResult, QuestionResult } from '../../services/exams';
 import { ScoreDisplay } from '../../components/ScoreDisplay';
@@ -88,7 +91,20 @@ export default function ResultScreen() {
                 Congratulations! You passed the exam.
               </Text>
             </View>
-          ) : (
+          ) : null}
+
+          {result.passed && result.certificate_url ? (
+            <TouchableOpacity
+              style={styles.certBtn}
+              onPress={() => Linking.openURL(result.certificate_url!)}
+            >
+              <Ionicons name="ribbon-outline" size={18} color="#16a34a" />
+              <Text style={styles.certBtnText}>View Certificate</Text>
+              <Ionicons name="open-outline" size={14} color="#16a34a" />
+            </TouchableOpacity>
+          ) : null}
+
+          {!result.passed ? (
             <View style={styles.failMessage}>
               <Text style={styles.failMessageText}>
                 You didn't reach the 85% passing threshold. Study the feedback below and try again.
@@ -242,6 +258,26 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
     lineHeight: fontSize.sm * 1.5,
+  },
+  certBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  certBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: '#16a34a',
+    flex: 1,
+    textAlign: 'center',
   },
   sectionTitle: {
     fontSize: fontSize.lg,

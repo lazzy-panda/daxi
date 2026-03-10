@@ -278,6 +278,7 @@ class ExamResultOut(BaseModel):
     passed: bool
     completed_at: datetime
     question_results: List[QuestionResultOut] = []
+    certificate_url: Optional[str] = None
 
 
 class ExamHistoryOut(BaseModel):

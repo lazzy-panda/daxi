@@ -158,6 +158,7 @@ class ExamSession(Base):
     status: Mapped[str] = mapped_column(String(50), default="in_progress")  # in_progress/completed
     questions_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     org_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=True)
+    certificate_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True, index=True)
 
     user: Mapped["User"] = relationship("User", back_populates="exam_sessions")
     answers: Mapped[list["ExamAnswer"]] = relationship("ExamAnswer", back_populates="exam_session")

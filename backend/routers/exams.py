@@ -1,9 +1,10 @@
 import json
 import random
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -262,6 +263,8 @@ def submit_exam(
     session.score = round(score_pct, 2)
     session.passed = passed
     session.status = "completed"
+    if passed and not session.certificate_token:
+        session.certificate_token = secrets.token_urlsafe(32)
     db.flush()
 
     # Generate remediation flash cards for weak/wrong answers (score < 7)
@@ -353,6 +356,7 @@ def exam_history(
 @router.get("/results/{session_id}", response_model=ExamResultOut)
 def get_exam_result(
     session_id: int,
+    request: "Request",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -397,6 +401,10 @@ def get_exam_result(
         ))
 
     pct = session.score or 0.0
+    cert_url = None
+    if session.certificate_token:
+        base = str(request.base_url).rstrip("/")
+        cert_url = f"{base}/certificate/{session.certificate_token}"
     return ExamResultOut(
         id=session.id,
         total_score=round(pct * _MAX_SCORE / 100, 1),
@@ -405,4 +413,5 @@ def get_exam_result(
         passed=session.passed or False,
         completed_at=session.submitted_at or session.started_at,
         question_results=question_results,
+        certificate_url=cert_url,
     )

@@ -46,6 +46,7 @@ export interface ExamResult {
   passed: boolean;
   completed_at: string;
   question_results: QuestionResult[];
+  certificate_url?: string;
 }
 
 export interface ExamHistory {
