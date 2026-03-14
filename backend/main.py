@@ -52,6 +52,12 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 # ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def on_startup():
+    # Ensure persistent data directories exist (e.g. Railway volume)
+    for path in [settings.UPLOAD_DIR, settings.CHROMA_PATH]:
+        os.makedirs(path, exist_ok=True)
+    db_dir = os.path.dirname(settings.DATABASE_URL.replace("sqlite:///", ""))
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     logger.info("Initialising database…")
     init_db()
     logger.info("Database ready.")
