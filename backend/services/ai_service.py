@@ -140,8 +140,13 @@ def generate_remediation_flashcards(
 # ── Question Generation ────────────────────────────────────────────────────────
 
 QUESTION_GEN_PROMPT = """You are an expert educator. Always respond in English.
-Given the following educational content, generate {count} open-ended exam questions
-that test deep understanding of the material.
+Given the following educational content, generate {count} open-ended exam questions.
+
+Rules:
+- Questions must be self-contained and understandable WITHOUT access to the source document.
+- Do NOT reference the document, text, passage, section, chapter, or article (e.g. avoid phrases like "according to the text", "as mentioned in", "in the document", "in section X").
+- Ask about concepts, facts, definitions, or reasoning — as if testing general knowledge on the topic.
+- Use clear, simple language. Avoid overly academic or complex phrasing.
 
 Return a JSON array of strings (the questions only).
 Return ONLY valid JSON array, no markdown, no extra text."""
@@ -229,6 +234,11 @@ SHORT_GEN_PROMPT = """You are an expert educator. Always respond in English.
 Given the following educational content, generate {count} short-answer questions.
 Each question should require a 1-2 sentence answer that tests factual recall or basic understanding.
 
+Rules:
+- Questions must be self-contained and understandable WITHOUT access to the source document.
+- Do NOT reference the document, text, passage, section, chapter, or article.
+- Use clear, simple language.
+
 Return a JSON array of strings (the questions only).
 Return ONLY valid JSON array, no markdown, no extra text."""
 
@@ -263,6 +273,11 @@ def generate_short_from_text(text: str, count: int = 5) -> List[str]:
 TF_GEN_PROMPT = """You are an expert educator. Always respond in English.
 Given the following educational content, generate {count} true/false questions.
 Each statement should be clearly true or false based on the material.
+
+Rules:
+- Statements must be self-contained and understandable WITHOUT access to the source document.
+- Do NOT reference the document, text, passage, section, chapter, or article.
+- Use clear, simple language.
 
 Return a JSON array of objects with fields:
 - question: the statement to evaluate
@@ -308,6 +323,11 @@ MCQ_GEN_PROMPT = """You are an expert educator. Always respond in English.
 Given the following educational content, generate {count} multiple-choice questions.
 Each question must have exactly 4 answer choices labeled A, B, C, D.
 Exactly one choice must be correct. Distractors should be plausible but clearly wrong.
+
+Rules:
+- Questions must be self-contained and understandable WITHOUT access to the source document.
+- Do NOT reference the document, text, passage, section, chapter, or article.
+- Use clear, simple language.
 
 Return a JSON array of objects with fields:
 - question: the question text
