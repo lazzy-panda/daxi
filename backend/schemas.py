@@ -107,22 +107,22 @@ class QuestionCreate(BaseModel):
 
 
 class QuestionGenerateRequest(BaseModel):
-    document_id: int
+    document_ids: List[int] = []
     count: int = 5
 
 
 class MCQGenerateRequest(BaseModel):
-    document_id: int
+    document_ids: List[int] = []
     count: int = 5
 
 
 class ShortGenerateRequest(BaseModel):
-    document_id: int
+    document_ids: List[int] = []
     count: int = 5
 
 
 class TrueFalseGenerateRequest(BaseModel):
-    document_id: int
+    document_ids: List[int] = []
     count: int = 5
 
 

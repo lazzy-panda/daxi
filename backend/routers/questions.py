@@ -27,6 +27,32 @@ def _get_org_id(user_id: int, db: Session):
     return member.org_id if member else None
 
 
+def _resolve_docs(document_ids: list, org_id, db: Session) -> list:
+    """Return ready Document objects for the given ids (or all ready org docs if ids is empty)."""
+    query = db.query(Document).filter(Document.status == "ready")
+    if org_id is not None:
+        query = query.filter(Document.org_id == org_id)
+    if document_ids:
+        query = query.filter(Document.id.in_(document_ids))
+    docs = query.all()
+    if not docs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No ready documents found.",
+        )
+    return docs
+
+
+def _combined_text(doc_ids: list, db: Session) -> str:
+    chunks = (
+        db.query(KnowledgeChunk)
+        .filter(KnowledgeChunk.document_id.in_(doc_ids))
+        .order_by(KnowledgeChunk.document_id, KnowledgeChunk.chunk_index)
+        .all()
+    )
+    return "\n\n".join(c.content for c in chunks)
+
+
 @router.get("", response_model=List[QuestionOut])
 def list_questions(
     db: Session = Depends(get_db),
@@ -65,33 +91,16 @@ def generate_questions(
     current_user: User = Depends(require_curator),
 ):
     org_id = _get_org_id(current_user.id, db)
-    doc = db.get(Document, payload.document_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-    if org_id is not None and doc.org_id != org_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Document does not belong to your organization.")
-    if doc.status != "ready":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Document is not ready (status: {doc.status}).",
-        )
-
-    chunks = (
-        db.query(KnowledgeChunk)
-        .filter(KnowledgeChunk.document_id == payload.document_id)
-        .order_by(KnowledgeChunk.chunk_index)
-        .all()
-    )
-    combined_text = "\n\n".join(c.content for c in chunks)
-
-    generated = ai_service.generate_questions_from_text(combined_text, count=payload.count)
+    docs = _resolve_docs(payload.document_ids, org_id, db)
+    doc_ids = [d.id for d in docs]
+    text = _combined_text(doc_ids, db)
+    generated = ai_service.generate_questions_from_text(text, count=payload.count)
 
     created = []
-    for text in generated:
+    for content in generated:
         q = Question(
-            content=text,
+            content=content,
             source_type="ai_generated",
-            source_document_id=payload.document_id,
             created_by=current_user.id,
             org_id=org_id,
         )
@@ -112,22 +121,10 @@ def generate_mcq_questions(
     current_user: User = Depends(require_curator),
 ):
     org_id = _get_org_id(current_user.id, db)
-    doc = db.get(Document, payload.document_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-    if org_id is not None and doc.org_id != org_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Document does not belong to your organization.")
-    if doc.status != "ready":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Document is not ready (status: {doc.status}).")
-
-    chunks = (
-        db.query(KnowledgeChunk)
-        .filter(KnowledgeChunk.document_id == payload.document_id)
-        .order_by(KnowledgeChunk.chunk_index)
-        .all()
-    )
-    combined_text = "\n\n".join(c.content for c in chunks)
-    generated = ai_service.generate_mcq_from_text(combined_text, count=payload.count)
+    docs = _resolve_docs(payload.document_ids, org_id, db)
+    doc_ids = [d.id for d in docs]
+    text = _combined_text(doc_ids, db)
+    generated = ai_service.generate_mcq_from_text(text, count=payload.count)
 
     created = []
     for item in generated:
@@ -136,7 +133,6 @@ def generate_mcq_questions(
             question_type="mcq",
             choices=item.get("choices", []),
             source_type="ai_generated",
-            source_document_id=payload.document_id,
             created_by=current_user.id,
             org_id=org_id,
         )
@@ -157,25 +153,17 @@ def generate_short_questions(
     current_user: User = Depends(require_curator),
 ):
     org_id = _get_org_id(current_user.id, db)
-    doc = db.get(Document, payload.document_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-    if org_id is not None and doc.org_id != org_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Document does not belong to your organization.")
-    if doc.status != "ready":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Document is not ready (status: {doc.status}).")
-
-    chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.document_id == payload.document_id).order_by(KnowledgeChunk.chunk_index).all()
-    combined_text = "\n\n".join(c.content for c in chunks)
-    generated = ai_service.generate_short_from_text(combined_text, count=payload.count)
+    docs = _resolve_docs(payload.document_ids, org_id, db)
+    doc_ids = [d.id for d in docs]
+    text = _combined_text(doc_ids, db)
+    generated = ai_service.generate_short_from_text(text, count=payload.count)
 
     created = []
-    for text in generated:
+    for content in generated:
         q = Question(
-            content=text,
+            content=content,
             question_type="short",
             source_type="ai_generated",
-            source_document_id=payload.document_id,
             created_by=current_user.id,
             org_id=org_id,
         )
@@ -196,17 +184,10 @@ def generate_true_false_questions(
     current_user: User = Depends(require_curator),
 ):
     org_id = _get_org_id(current_user.id, db)
-    doc = db.get(Document, payload.document_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-    if org_id is not None and doc.org_id != org_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Document does not belong to your organization.")
-    if doc.status != "ready":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Document is not ready (status: {doc.status}).")
-
-    chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.document_id == payload.document_id).order_by(KnowledgeChunk.chunk_index).all()
-    combined_text = "\n\n".join(c.content for c in chunks)
-    generated = ai_service.generate_true_false_from_text(combined_text, count=payload.count)
+    docs = _resolve_docs(payload.document_ids, org_id, db)
+    doc_ids = [d.id for d in docs]
+    text = _combined_text(doc_ids, db)
+    generated = ai_service.generate_true_false_from_text(text, count=payload.count)
 
     created = []
     for item in generated:
@@ -220,7 +201,6 @@ def generate_true_false_questions(
             question_type="true_false",
             choices=choices,
             source_type="ai_generated",
-            source_document_id=payload.document_id,
             created_by=current_user.id,
             org_id=org_id,
         )

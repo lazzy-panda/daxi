@@ -33,29 +33,17 @@ export const questionsService = {
   delete: (id: number | string) =>
     api.delete<void>(`/questions/${id}`),
 
-  generateAI: (documentId: number | string, count = 5) =>
-    api.post<Question[]>('/questions/generate', {
-      document_id: documentId,
-      count,
-    }),
+  generateAI: (documentIds: (number | string)[], count = 5) =>
+    api.post<Question[]>('/questions/generate', { document_ids: documentIds, count }),
 
-  generateMCQ: (documentId: number | string, count = 5) =>
-    api.post<Question[]>('/questions/generate/mcq', {
-      document_id: documentId,
-      count,
-    }),
+  generateMCQ: (documentIds: (number | string)[], count = 5) =>
+    api.post<Question[]>('/questions/generate/mcq', { document_ids: documentIds, count }),
 
-  generateShort: (documentId: number | string, count = 5) =>
-    api.post<Question[]>('/questions/generate/short', {
-      document_id: documentId,
-      count,
-    }),
+  generateShort: (documentIds: (number | string)[], count = 5) =>
+    api.post<Question[]>('/questions/generate/short', { document_ids: documentIds, count }),
 
-  generateTrueFalse: (documentId: number | string, count = 5) =>
-    api.post<Question[]>('/questions/generate/true-false', {
-      document_id: documentId,
-      count,
-    }),
+  generateTrueFalse: (documentIds: (number | string)[], count = 5) =>
+    api.post<Question[]>('/questions/generate/true-false', { document_ids: documentIds, count }),
 
   importJson: (questions: CreateQuestionRequest[]) =>
     api.post<Question[]>('/questions/import/json', { questions }),

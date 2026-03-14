@@ -33,7 +33,7 @@ export default function QuestionsScreen() {
   const [aiModalVisible, setAiModalVisible] = useState(false);
   const [generateType, setGenerateType] = useState<'open' | 'short' | 'mcq' | 'true_false'>('open');
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedDocId, setSelectedDocId] = useState<number | string | null>(null);
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<number | string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState('');
 
@@ -113,7 +113,7 @@ export default function QuestionsScreen() {
 
   const openAiModal = async () => {
     setGenerateError('');
-    setSelectedDocId(null);
+    setSelectedDocIds(new Set());
     try {
       const docs = await documentsService.getAll();
       setDocuments(docs.filter((d) => d.status === 'ready'));
@@ -123,19 +123,32 @@ export default function QuestionsScreen() {
     setAiModalVisible(true);
   };
 
+  const toggleDoc = (id: number | string) => {
+    setSelectedDocIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = documents.length > 0 && selectedDocIds.size === documents.length;
+  const toggleAll = () => {
+    if (allSelected) setSelectedDocIds(new Set());
+    else setSelectedDocIds(new Set(documents.map((d) => d.id)));
+  };
+
   const handleGenerate = async () => {
-    if (!selectedDocId) {
-      setGenerateError('Please select a document');
-      return;
-    }
+    // empty = all docs
+    const ids = Array.from(selectedDocIds);
     setIsGenerating(true);
     setGenerateError('');
     try {
       const generated =
-        generateType === 'mcq' ? await questionsService.generateMCQ(selectedDocId, 5) :
-        generateType === 'short' ? await questionsService.generateShort(selectedDocId, 5) :
-        generateType === 'true_false' ? await questionsService.generateTrueFalse(selectedDocId, 5) :
-        await questionsService.generateAI(selectedDocId, 5);
+        generateType === 'mcq' ? await questionsService.generateMCQ(ids, 5) :
+        generateType === 'short' ? await questionsService.generateShort(ids, 5) :
+        generateType === 'true_false' ? await questionsService.generateTrueFalse(ids, 5) :
+        await questionsService.generateAI(ids, 5);
       setQuestions((prev) => [...generated, ...prev]);
       setAiModalVisible(false);
     } catch (err: unknown) {
@@ -315,21 +328,21 @@ export default function QuestionsScreen() {
               </View>
             ) : (
               <View style={styles.docList}>
+                <TouchableOpacity style={styles.docItem} onPress={toggleAll}>
+                  <View style={[styles.docCheckbox, allSelected && styles.docCheckboxSelected]}>
+                    {allSelected && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={[styles.docItemText, { fontWeight: '600' }]}>All documents</Text>
+                </TouchableOpacity>
                 {documents.map((doc) => (
                   <TouchableOpacity
                     key={doc.id}
-                    style={[
-                      styles.docItem,
-                      selectedDocId === doc.id && styles.docItemSelected,
-                    ]}
-                    onPress={() => setSelectedDocId(doc.id)}
+                    style={[styles.docItem, selectedDocIds.has(doc.id) && styles.docItemSelected]}
+                    onPress={() => toggleDoc(doc.id)}
                   >
-                    <View
-                      style={[
-                        styles.docRadio,
-                        selectedDocId === doc.id && styles.docRadioSelected,
-                      ]}
-                    />
+                    <View style={[styles.docCheckbox, selectedDocIds.has(doc.id) && styles.docCheckboxSelected]}>
+                      {selectedDocIds.has(doc.id) && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
                     <Text style={styles.docItemText}>{doc.name || doc.filename}</Text>
                   </TouchableOpacity>
                 ))}
@@ -346,7 +359,7 @@ export default function QuestionsScreen() {
                 title="Generate 5 Questions"
                 onPress={handleGenerate}
                 loading={isGenerating}
-                disabled={!selectedDocId}
+                disabled={documents.length === 0}
               />
             </View>
           </View>
@@ -531,16 +544,24 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: '#EFF6FF',
   },
-  docRadio: {
+  docCheckbox: {
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: 4,
     borderWidth: 2,
     borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  docRadioSelected: {
+  docCheckboxSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primary,
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 14,
   },
   docItemText: { fontSize: fontSize.sm, color: colors.text, flex: 1 },
   modalActions: {
