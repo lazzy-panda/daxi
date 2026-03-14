@@ -119,11 +119,16 @@ def split_into_chunks(text: str) -> List[str]:
     return [c for c in chunks if c]
 
 
-async def process_document(document_id: int, db: Session) -> None:
+async def process_document(document_id: int, db: Session = None) -> None:
     """
     Background task: extract text, chunk, embed, and store.
     Updates document status in the database.
     """
+    from database import SessionLocal
+    own_session = db is None
+    if own_session:
+        db = SessionLocal()
+
     doc = db.get(Document, document_id)
     if doc is None:
         logger.error("Document %d not found", document_id)
@@ -169,3 +174,6 @@ async def process_document(document_id: int, db: Session) -> None:
         logger.exception("Document %d processing failed: %s", document_id, exc)
         doc.status = "failed"
         db.commit()
+    finally:
+        if own_session:
+            db.close()
