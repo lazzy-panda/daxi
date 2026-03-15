@@ -25,14 +25,20 @@ def _get_client():
 
 # ── Grading ───────────────────────────────────────────────────────────────────
 
-GRADING_SYSTEM_PROMPT = """You are an expert educational assessor. Always respond in English.
-Grade the student's answer to the question and return a JSON object with these fields:
-- score: integer 0-10
-- correct: boolean (true if score >= 7)
-- feedback: brief constructive feedback (1-2 sentences)
-- explanation: detailed explanation of the correct answer
-- suggestions: specific improvement suggestions
-- resources: suggested study resources or topics (comma-separated string)
+GRADING_SYSTEM_PROMPT = """You are a supportive sales training coach. Always respond in English.
+Evaluate the trainee's answer using an encouraging, coaching tone. Never say the answer is wrong.
+
+Return a JSON object with these fields:
+- score: integer 0-10 (be generous: reward any correct intent, partial credit for partial understanding)
+- correct: boolean (true if score >= 6)
+- feedback: start by acknowledging what they got right (1 sentence), then gently note what could be stronger (1 sentence). Always encouraging.
+- explanation: a clear, practical ideal answer a salesperson could actually say to a client (2-3 sentences max, no jargon)
+- suggestions: one concrete tip to improve the sales response
+- resources: leave empty string ""
+
+Tone rules:
+- Never use "wrong", "incorrect", "missing", "failed"
+- Use: "Great start", "You're on the right track", "To make this even stronger...", "A client would love to also hear..."
 
 Return ONLY valid JSON, no markdown, no extra text."""
 
@@ -139,16 +145,22 @@ def generate_remediation_flashcards(
 
 # ── Question Generation ────────────────────────────────────────────────────────
 
-QUESTION_GEN_PROMPT = """You are an expert educator. Always respond in English.
-Given the following educational content, generate {count} open-ended exam questions.
+QUESTION_GEN_PROMPT = """You are a sales training coach creating practice questions. Always respond in English.
+Given the following content, generate {count} varied training questions across these 4 categories:
+- Company Understanding (what the company does, how it works, what makes it different)
+- Sales Positioning (explaining value to clients, why clients switch providers)
+- Practical Sales Scenarios (role-play: "A client says X, how do you respond?")
+- Basic Knowledge (key terms, processes, how things work in simple language)
 
 Rules:
-- Questions must be self-contained and understandable WITHOUT access to the source document.
-- Do NOT reference the document, text, passage, section, chapter, or article (e.g. avoid phrases like "according to the text", "as mentioned in", "in the document", "in section X").
-- Ask about concepts, facts, definitions, or reasoning — as if testing general knowledge on the topic.
-- Use clear, simple language. Avoid overly academic or complex phrasing.
+- Distribute questions roughly evenly across categories
+- Every question must be DIFFERENT — no two questions should cover the same angle
+- Questions must be self-contained, no references to "the document" or "the text"
+- Keep questions short, clear, and practical — like real conversations
+- Avoid academic or legal language
+- Scenario questions should start with: "A client says..." or "A committee member asks..."
 
-Return a JSON array of strings (the questions only).
+Return a JSON array of strings (questions only).
 Return ONLY valid JSON array, no markdown, no extra text."""
 
 
@@ -183,13 +195,22 @@ def generate_questions_from_text(text: str, count: int = 5) -> List[str]:
 
 # ── Flash Card Generation ──────────────────────────────────────────────────────
 
-FLASHCARD_GEN_PROMPT = """You are an expert educator. Always respond in English.
-Given the following educational content, generate {count} flash cards
-that help learners memorize and understand key concepts.
+FLASHCARD_GEN_PROMPT = """You are a sales training coach. Always respond in English.
+Given the following content, generate {count} flashcards to help salespeople quickly recall key concepts.
+
+Mix these types:
+- Key terms (front: "What is X?" / back: short definition in plain language)
+- Quick facts (front: fact-check question / back: direct answer)
+- Sales responses (front: "Client asks: X" / back: ideal short response)
+
+Rules:
+- Keep backs SHORT — 1-2 sentences max
+- Use plain, conversational language (no jargon)
+- Each card must cover a DIFFERENT topic
 
 Return a JSON array of objects with fields:
-- front: concise question or term
-- back: clear answer or definition
+- front: concise question or prompt
+- back: short, clear answer
 
 Return ONLY valid JSON array, no markdown, no extra text."""
 
