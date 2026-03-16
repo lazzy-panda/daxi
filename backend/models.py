@@ -124,7 +124,7 @@ class Question(Base):
 
     source_document: Mapped[Optional["Document"]] = relationship("Document", back_populates="questions")
     creator: Mapped[Optional["User"]] = relationship("User", back_populates="questions")
-    exam_answers: Mapped[list["ExamAnswer"]] = relationship("ExamAnswer", back_populates="question")
+    exam_answers: Mapped[list["ExamAnswer"]] = relationship("ExamAnswer", back_populates="question", cascade="all, delete-orphan")
 
 
 class FlashCard(Base):
@@ -146,7 +146,7 @@ class FlashCard(Base):
     exam_answer: Mapped[Optional["ExamAnswer"]] = relationship(
         "ExamAnswer", back_populates="flash_cards"
     )
-    reviews: Mapped[list["FlashCardReview"]] = relationship("FlashCardReview", back_populates="flash_card")
+    reviews: Mapped[list["FlashCardReview"]] = relationship("FlashCardReview", back_populates="flash_card", cascade="all, delete-orphan")
 
 
 class ExamSession(Base):
@@ -184,7 +184,7 @@ class ExamAnswer(Base):
 
     exam_session: Mapped["ExamSession"] = relationship("ExamSession", back_populates="answers")
     question: Mapped["Question"] = relationship("Question", back_populates="exam_answers")
-    flash_cards: Mapped[list["FlashCard"]] = relationship("FlashCard", back_populates="exam_answer")
+    flash_cards: Mapped[list["FlashCard"]] = relationship("FlashCard", back_populates="exam_answer", cascade="all, delete-orphan")
 
 
 class FlashCardReview(Base):
