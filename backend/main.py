@@ -23,9 +23,12 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+_cors_origins = [settings.FRONTEND_URL]
+if settings.FRONTEND_URL != "http://localhost:8081":
+    _cors_origins.append("http://localhost:8081")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
