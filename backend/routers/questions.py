@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from dependencies import require_curator
-from models import Document, KnowledgeChunk, OrganizationMember, Question, User
+from models import Document, ExamAnswer, FlashCard, FlashCardReview, KnowledgeChunk, OrganizationMember, Question, User
 from schemas import (
     QuestionCreate,
     QuestionGenerateRequest,
@@ -307,5 +307,13 @@ def delete_question(
     q = db.get(Question, question_id)
     if q is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found.")
+    # Manually cascade: reviews → flash_cards → exam_answers → question
+    answers = db.query(ExamAnswer).filter(ExamAnswer.question_id == question_id).all()
+    for answer in answers:
+        cards = db.query(FlashCard).filter(FlashCard.exam_answer_id == answer.id).all()
+        for card in cards:
+            db.query(FlashCardReview).filter(FlashCardReview.flash_card_id == card.id).delete()
+            db.delete(card)
+        db.delete(answer)
     db.delete(q)
     db.commit()
